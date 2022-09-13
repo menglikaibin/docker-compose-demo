@@ -1,0 +1,89 @@
+version: "3"
+services:
+  nacos-db:
+    image: mysql:latest
+    container_name: mysql-nacos
+    security_opt:
+      - seccomp:unconfined
+    networks:
+      - nacos2
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: nacos
+      MYSQL_USER: nacos
+      MYSQL_PASSWORD: location
+    command:
+      --max_connections=1000
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_general_ci
+      --default-authentication-plugin=mysql_native_password
+    ports:
+      - 3306:3306
+  nacos:
+    image: nacos/nacos-server:latest
+    container_name: nacos2
+    networks:
+      - nacos2
+    env_file:
+      - ./env/nacos-standlone-mysql.env
+    volumes:
+      - ./logs/nacos:/home/nacos/logs
+      - ./init.d/custom.properties:/home/nacos/init.d/custom.properties
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+      - "9555:9555"
+    restart: always
+  seata-server:
+    image: seataio/seata-server:1.4.2
+    container_name: seata
+    hostname: seata-server
+    networks:
+      - nacos2
+    ports:
+      - "8091:8091"
+    environment:
+      - SEATA_PORT=8091
+      - SEATA_CONFIG_NAME=file:/root/seata-config/registry
+    volumes:
+      - /Users/michael/docker-file/total/seata-config:/root/seata-config
+    restart: always
+  redis:
+    image: redis:5.0
+    container_name: redis
+    networks:
+      - nacos2
+    ports:
+      - 6379:6379
+    volumes:
+      - /Users/michael/docker-file/total/redis/redis.config:/usr/local/etc/redis/redis.conf
+      - ./data:/data
+    restart: always
+  xxl-job-admin:
+    image: xuxueli/xxl-job-admin:2.3.1
+    restart: always
+    container_name: xxl-job-admin
+    environment:
+      PARAMS: '--spring.datasource.url=jdbc:mysql://mysql-nacos:3306/xxl_job?Unicode=true&characterEncoding=UTF-8 --spring.datasource.username=root --spring.datasource.password=123456 --xxl.job.accessToken='
+    ports:
+      - 2222:8080
+    volumes:
+      - ./data/applogs:/data/applogs
+    networks:
+      - nacos2
+  zookeeper:
+    image: zookeeper:3.8.0
+    restart: always
+    container_name: zookeeper
+    networks:
+      - nacos2
+    volumes:
+      - ./zookeeper/config:/conf
+      - ./zookeeper/data:/data
+      - ./zookeeper/logs:/datalog
+    ports:
+      - "5018:2181"
+networks:
+  nacos2:
+    driver: bridge
