@@ -1,0 +1,5 @@
+/kafka
+/data
+/logs
+/zookeeper/data
+/zookeeper/logs
